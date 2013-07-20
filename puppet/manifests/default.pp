@@ -7,7 +7,7 @@ class system-update {
     exec { 'apt-get update':
         command => 'apt-get update',
     }
-
+    
     $sysPackages = [ "build-essential" ]
 
     package { $sysPackages:
@@ -52,7 +52,7 @@ class nginx-setup {
     file { '/etc/nginx/sites-available/default':
         require => Package["nginx"],
         ensure => file,
-        source => '/vagrant/files/nginx/default',
+        source => '/vagrant/conf/nginx/default',
         notify => Service["nginx"],
         owner  => root,
         group  => root,
@@ -89,8 +89,51 @@ class mysql-setup {
     
 }
 
+class php-setup {
+    #install php-fpm
+    include php::fpm
+    
+    #install php modules
+    $phpModules = ['gd', 'mcrypt', 'mysql']
+    
+    php::module { $phpModules:
+        notify => Class['php::fpm::service'],
+    }
+
+    #php::module { [ 'apc', ]:
+    #    notify => Class['php::fpm::service'],
+    #    source  => '/etc/php5/conf.d/',
+    #}
+
+    php::module { [ 'xdebug', ]:
+        notify  => Class['php::fpm::service'],
+        source  => '/etc/php5/conf.d/',
+    }
+
+    file { "/etc/php5/conf.d/custom.ini":
+        owner  => root,
+        group  => root,
+        mode   => 664,
+        source => "/vagrant/conf/php/conf.d/php.ini",
+        notify => Class['php::fpm::service'],
+    }
+
+    file { "/etc/php5/fpm/pool.d/www.conf":
+        owner  => root,
+        group  => root,
+        mode   => 664,
+        source => "/vagrant/conf/php/fpm/pool.d/www.conf",
+        notify => Class['php::fpm::service'],
+    }
+
+    #install pear
+    include pear
+    pear::package { "PEAR": }
+}
+
 #include all the classes
 include system-update
 include dev-packages
 include nginx-setup
 include mysql-setup
+include php-setup
