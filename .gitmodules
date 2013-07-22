@@ -13,9 +13,3 @@
 [submodule "puppet/modules/puppi"]
 	path = puppet/modules/puppi
 	url = https://github.com/example42/puppi.git
-[submodule "puppet/modules/php"]
-	path = puppet/modules/php
-	url = https://github.com/saz/puppet-php.git
-[submodule "puppet/modules/pear"]
-	path = puppet/modules/pear
-	url = https://github.com/rafaelfelix/puppet-pear.git
