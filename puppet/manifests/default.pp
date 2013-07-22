@@ -20,17 +20,25 @@ class system-update {
 #TODO consider ommiting on live server
 class dev-packages {
 
-    $devPackages = [ "vim", "git", "curl", "capistrano"]
+    $devPackages = [ "vim", "git", "capistrano"]
 
     package { $devPackages:
         ensure => "installed",
         require => Exec['apt-get update'],
     }
 
-    exec { 'install capistrano_rsync_with_remote_cache using RubyGems':
-        command => 'gem install capistrano_rsync_with_remote_cache',
+    #get rid of the ruby on rails stuff
+    exec { 'install railsless-deploy using RubyGems':
+        command => 'gem install railsless-deploy',
         require => Package["capistrano"],
     }
+
+    #for multi-stage deploy (eg. stagin, development)
+    exec { 'install capistrano-ext using RubyGems':
+        command => 'gem install capistrano-ext',
+        require => Package["capistrano"],
+    }
+
     
 }
 
@@ -90,46 +98,49 @@ class mysql-setup {
 }
 
 class php-setup {
-    #install php-fpm
-    include php::fpm
-    
-    #install php modules
-    $phpModules = ['gd', 'mcrypt', 'mysql']
-    
-    php::module { $phpModules:
-        notify => Class['php::fpm::service'],
+    #install php and its siblings
+    $php = ["php5", "php5-fpm", "php-pear", "php5-common", "php5-mcrypt", "php5-mysql", "php5-cli", "php5-gd", "php-apc"]
+
+    package { $php:
+        notify => Service['php5-fpm'],
+        ensure => latest,
     }
-
-    #php::module { [ 'apc', ]:
-    #    notify => Class['php::fpm::service'],
-    #    source  => '/etc/php5/conf.d/',
-    #}
-
-    php::module { [ 'xdebug', ]:
-        notify  => Class['php::fpm::service'],
-        source  => '/etc/php5/conf.d/',
+    
+    #run php5-fpm
+    service { "php5-fpm":
+        ensure => running,
+        require => Package["php5-fpm"],
     }
-
+  
+    #set php config file (for timezones, short open tags)
     file { "/etc/php5/conf.d/custom.ini":
+        require => Package["php5-fpm"],
         owner  => root,
         group  => root,
         mode   => 664,
         source => "/vagrant/conf/php/conf.d/php.ini",
-        notify => Class['php::fpm::service'],
+        notify => Service['php5-fpm'],
     }
 
+    #setup nginx config file to tell nginx how to serve our data
     file { "/etc/php5/fpm/pool.d/www.conf":
+        require => Package["php5-fpm"],
         owner  => root,
         group  => root,
         mode   => 664,
         source => "/vagrant/conf/php/fpm/pool.d/www.conf",
-        notify => Class['php::fpm::service'],
+        notify => Service['php5-fpm'],
     }
-
-    #install pear
-    include pear
-    pear::package { "PEAR": }
 }
+
+#run apt-get update every time the apt module is run
+class {'apt':
+  always_apt_update => true,
+}
+
+#every time a package command is executed, the dependency ('apt-get update') will be triggered first.
+Exec["apt-get update"] -> Package <| |>
+
 
 #include all the classes
 include system-update
