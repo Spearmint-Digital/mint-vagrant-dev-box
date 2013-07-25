@@ -1,7 +1,7 @@
 #add to path so can use apt-get
 Exec { path => [ "/bin/", "/sbin/" , "/usr/bin/", "/usr/sbin/" ] }
 
-#updte the system and install build essentials
+#update the system and install build essentials
 class system-update {
 
     exec { 'apt-get update':
@@ -33,13 +33,20 @@ class dev-packages {
         require => Package["capistrano"],
     }
 
-    #for multi-stage deploy (eg. stagin, development)
+    #for multi-stage deploy (eg. staging, development)
     exec { 'install capistrano-ext using RubyGems':
         command => 'gem install capistrano-ext',
         require => Package["capistrano"],
     }
+}
 
-    
+#install a software firewall
+class ufw-setup {
+  package { 'ufw':
+    ensure => present,
+  }
+
+  Package['ufw'] -> Exec['ufw allow http'] -> Exec['ufw allow http'] -> Exec['ufw enable']    
 }
 
 class nginx-setup {
@@ -77,6 +84,16 @@ class nginx-setup {
         ensure => link,
         target => "/etc/nginx/sites-available/default",
         owner => root
+    }
+
+    #make sure the www folder is writable by nginx
+    file { '/vagrant/www':
+        require => Package["nginx"],
+        ensure  => 'present',
+        mode    => '0755',
+        owner   => 'www-data',
+        group   => 'www-data', 
+        notify => Service["nginx"],
     }
 }
 
@@ -122,7 +139,7 @@ class php-setup {
         notify => Service['php5-fpm'],
     }
 
-    #setup nginx config file to tell nginx how to serve our data
+    #setup php config file to tell php how to serve our data
     file { "/etc/php5/fpm/pool.d/www.conf":
         require => Package["php5-fpm"],
         owner  => root,
